@@ -22,7 +22,7 @@ def modify_text(text):
     return str(soup)
 
 
-# Маршрут для обработки запросов
+# Маршрут для обработки запросов к корневой странице
 @app.route('/')
 def hacker_news_proxy():
     url = "https://news.ycombinator.com/"
@@ -31,16 +31,19 @@ def hacker_news_proxy():
     return Response(modified_page, content_type='text/html; charset=utf-8')
 
 # Маршрут для обработки внутренних страниц
-@app.route('/item')
-def hacker_news_item():
-    item_id = request.args.get('id')
-    if item_id:
-        url = f"https://news.ycombinator.com/item?id={item_id}"
-        item_page = get_hacker_news_page(url)
-        modified_page = modify_text(item_page)
-        return Response(modified_page, content_type='text/html; charset=utf-8')
+@app.route('/<page_type>')
+def hacker_news_page(page_type):
+    page_id = request.args.get('id')
+    if page_type and page_id:
+        url = f"https://news.ycombinator.com/{page_type}?id={page_id}"
+    elif page_type:
+        url = f"https://news.ycombinator.com/{page_type}"
     else:
         return redirect('/')
+    
+    page_content = get_hacker_news_page(url)
+    modified_page = modify_text(page_content)
+    return Response(modified_page, content_type='text/html; charset=utf-8')
 
 if __name__ == '__main__':
     app.run(host='localhost', port=8232)
