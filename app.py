@@ -5,13 +5,15 @@ from apscheduler.schedulers.background import BackgroundScheduler
 import atexit
 import re
 
+URL_SOURCE = "https://news.ycombinator.com"
+
 app = Flask(__name__)
 
 # Dictionary for page caching
 page_cache = {}
 
 # Function to get contents of Hacker News page with caching
-def get_hacker_news_page(url):
+def get_page(url):
     if url in page_cache:
         return page_cache[url]
     else:
@@ -44,48 +46,61 @@ def modify_text(text):
         tag.replace_with(' '.join(words))
     return str(soup)
 
+
+def modify_css(css_text, base_url):
+    regex_pattern = r'url\("([^"]+)"\)'
+    replacement = r'url("{}/\1")'.format(base_url)
+    modified_css_text = re.sub(regex_pattern, replacement, css_text)
+    return modified_css_text
+
+
 # Function for changing resource links
 def modify_resources(text, base_url):
     soup = BeautifulSoup(text, 'html.parser')
     for tag in soup.find_all(['link', 'script', 'img'], src=True):
         if not tag['src'].startswith(('http://', 'https://')):
-            tag['src'] = f"{base_url}{tag['src']}"
+            tag['src'] = f"{base_url}/{tag['src']}"
+    for tag in soup.find_all(['a', 'link'], href=True):
+        if tag['href'] == base_url:
+            tag['href'] = '/'
+        if tag['href'] == "favicon.ico":
+            tag['href'] = f"{base_url}/{tag['href']}"
     return str(soup)
 
 # Route for processing requests to the root page
 @app.route('/')
-def hacker_news_proxy():
-    url = "https://news.ycombinator.com/"
-    hacker_news_page = get_hacker_news_page(url)
-    modified_page = modify_text(hacker_news_page)
+def route_page_main():
+    page_content = get_page(URL_SOURCE)
+    modified_page = modify_text(page_content)
 
-    modified_page_with_resources = modify_resources(modified_page, url)
+    modified_page_with_resources = modify_resources(modified_page, URL_SOURCE)
     return Response(modified_page_with_resources, content_type='text/html; charset=utf-8')
 
 # Route for processing internal pages
 @app.route('/<page_type>')
-def hacker_news_page(page_type):
+def route_page_other(page_type):
 
     params = request.args.to_dict()
     if page_type and params:
         getparams = ''
         for key, value in params.items():
             getparams += f"{key}={value}&"
-        url = f"https://news.ycombinator.com/{page_type}?{getparams}"
+        url = f"{URL_SOURCE}/{page_type}?{getparams}"
     elif page_type:
-        url = f"https://news.ycombinator.com/{page_type}"
+        url = f"{URL_SOURCE}/{page_type}"
     else:
         return redirect('/')
     
-    page_content = get_hacker_news_page(url)
+    page_content = get_page(url)
    
     pattern = r'https://[^\s]+(?:\.css|\.js)[^\s]*'
     matches = re.findall(pattern, url)
     if not matches:
         page_content = modify_text(page_content)
+    if 'news.css' in url:
+        page_content = modify_css(page_content, URL_SOURCE)
     
-    base_url = "https://news.ycombinator.com/"
-    modified_page_with_resources = modify_resources(page_content, base_url)
+    modified_page_with_resources = modify_resources(page_content, URL_SOURCE)
     return Response(modified_page_with_resources, content_type='text/html; charset=utf-8')
 
 if __name__ == '__main__':
