@@ -41,7 +41,8 @@ def modify_text(text):
     for tag in soup.find_all(text=True):
         words = tag.split(' ')
         for i in range(len(words)):
-            if len(words[i]) == 6:
+            # using a regular to check that a word of 6 letters
+            if re.match(r'^[a-zA-Z]{6}$', words[i]):
                 words[i] += '™'
         tag.replace_with(' '.join(words))
     return str(soup)
