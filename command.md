@@ -15,7 +15,7 @@ source myenv/bin/activate
 - Installing packages and dependencies
 
 ```bash
-pip install requests flask bs4
+pip install flask bs4 apscheduler requests
 ```
 
 - Deactivating a virtual environment
